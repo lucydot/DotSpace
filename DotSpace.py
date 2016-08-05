@@ -16,7 +16,8 @@ def create(args):
         defects[position] = 1 # This may change later; 
         # currently marking defect position
     
-    # Place random defects on positions which have not been specified in "defects".
+    # Place random defects on positions which have not been specified in 
+    # "defects".
     zeros = np.where(defects == 0)[0]
     random_numbers = np.random.choice(zeros, args["random"], replace=False) 
     args["random_numbers"] = random_numbers
@@ -27,7 +28,7 @@ def create(args):
         
     # Working in 1D
     counter = 0 
-    for position in np.arange(len(array)):
+    for position in np.arange(len(pattern)):
         if defects[position] == 1:
             pattern[position] = args["basis"][0] # re-start basis at defect
             counter = 1
@@ -55,8 +56,8 @@ def overlay(pattern_bottom, pattern_top):
     return pattern_overlaid
 
 def visualise(args, defects, patterns):
-    """Matplotlib magic: Generates PNG files for defects, bottom layer, top layer
-    and overlaid. 1's (dots) are black, 0's (spaces) are white."""
+    """Matplotlib magic: Generates PNG files for defects, bottom layer, 
+    top layer and overlaid. 1's (dots) are black, 0's (spaces) are white."""
     
     patterns.insert(0,defects)
     names = ["defects", "bottom", "top", "overlaid"]
@@ -64,7 +65,8 @@ def visualise(args, defects, patterns):
         image = plt.imshow(patterns[index], interpolation='nearest')
         image.set_cmap('Greys')
         plt.axis('off')
-        plt.savefig(args["identity"]+"-"+names[index]+".png", bbox_inches='tight')
+        plt.savefig(args["identity"]+"-"+names[index]+".png", 
+                    bbox_inches='tight')
         plt.close()
 
 def correlate(args, pattern):
@@ -72,7 +74,7 @@ def correlate(args, pattern):
     
     # See Ziman, Models of disorder p.? 
     # Thanks to Andrew Goodwin and Jarvist Frost for discussion
-    array[array == 0] = -1
+    pattern[pattern == 0] = -1
 
     if args["cutoff"] is None:
         X = pattern.shape[0]
@@ -110,13 +112,13 @@ def correlate(args, pattern):
                             else:
                                 # You may now proceed 
                                 store.append([x,y,dx,dy])
-                                product = array[x,y]*array[x+dx,y+dy]
+                                product = pattern[x,y]*pattern[x+dx,y+dy]
                                 # Update histograms
                                 total[dx*dx+dy*dy]=total[dx*dx+dy*dy]+product
                                 count[dx*dx+dy*dy]=count[dx*dx+dy*dy]+1
     
     # Fudge to stop nan error. Everything's so easy with Numpy.
-    count = numpy.where(number==0,1,count)
+    count = np.where(count==0,1,count)
     
     # Weight total by number of partners
     rho = np.divide(total,count)
@@ -165,10 +167,10 @@ def main(args):
     
     if args["width"] == args["height"] and args["no_overlay"] is False: 
         patterns.append(np.rot90(patterns[0]))
-        print ("Overlaying arrays...")
+        print ("Overlaying patterns...")
         patterns.append(overlay(patterns[0], patterns[1]))
     
-    print ("Plotting visual representation of array...")
+    print ("Plotting visual representation of pattern...")
     visualise(args, defects, patterns)
    
     if args["no_correlation"] is not True:
@@ -210,20 +212,24 @@ if __name__=='__main__':
     parser.add_argument("-b", "--basis", required=True, type=int, nargs='+',
                         help="repeating basis: 1=dot, 0=empty")
     parser.add_argument("-d", "--defects", type=int, nargs='+', default=[],
-                        help="position of defects (in 1D, remember count from 0)")
+                        help="position of defects "
+                        "(in 1D, remember count from 0)")
     parser.add_argument("-a", "--args", action='help', help="print args")
     parser.add_argument("-no", "--no_overlay", action="store_true", 
-                        help="if selected then only a single pattern is created")
+                        help="if selected then only a single pattern is "
+                             "created")
     parser.add_argument("-nc", "--no_correlation", action="store_true",
                         help="if selected then correlation length will not be"
-                        " calculated")
+                             " calculated")
     parser.add_argument("-r", "--random", type=int, default=0,
                         help="number of defects to place randomly throughout"
-                        "the pattern. Default is 0.")
+                             "the pattern. Default is 0.")
     parser.add_argument("-x", "--cutoff", type=int, default=None,
                         help="largest horizontal and vertical distance for "
-                        "the correlation calculation")
+                             "the correlation calculation")
+    
     args = vars(parser.parse_args())
+    
     for item in args["defects"]: 
         if item > (args["width"]*args["height"])-1:
             raise ValueError("Defects specified beyond pattern size")
@@ -231,6 +237,7 @@ if __name__=='__main__':
             raise ValueError("Basis specified beyond pattern size")
     if args["random"]  > (args["width"]*args["height"]):
             raise ValueError("Number of defects cannot exceed pattern size")
+    
     main(args) 
 
 
