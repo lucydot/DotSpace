@@ -3,24 +3,19 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-from numba import jit # run forest, run! <--- if you don't have numba 
-# (http://numba.pydata.org/) installed, just remove this and line beginning 
-# @jit, or install it because it makes the loops run faasssttt. Dependencies:
-# llvm37 (xcode) and llvmlite.
 from IPython import embed # This is just for de-buggin'
-import time                                                
+import time
 
 def timeit(method):
-      
+
     def timed(*args, **kw):
         ts = time.time()
         result = method(*args, **kw)
         te = time.time()
-                      
+
         print ('%r (%r, %r) %2.2f sec' % \
-            (method.__name__, args, kw, te-ts))
+                (method.__name__, args, kw, te-ts))
         return result
-                                                         
     return timed
 
 def create(args):
@@ -87,7 +82,6 @@ def visualise(args, defects, patterns):
                     bbox_inches='tight')
         plt.close()
 
-@jit
 def jitterbug(pattern,X,Y):
     
     # Histogram: index is distance dx^2+dy^2 
@@ -117,7 +111,7 @@ def jitterbug(pattern,X,Y):
                                 pass
                             else:
                                 # You may now proceed 
-                                store = np.vstack((store,[x,y,dx,dy]))
+                                np.vstack((store,[x,y,dx,dy]))
                                 product = pattern[x,y]*pattern[x+dx,y+dy]
                                 # Update histograms
                                 total[dx*dx+dy*dy]=total[dx*dx+dy*dy]+product
