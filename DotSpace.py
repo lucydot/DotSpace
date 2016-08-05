@@ -3,64 +3,80 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-from IPython import embed
+from IPython import embed # This is just for de-buggin'
 
 def create(args):
+    """ Creates pattern with basis broken at defect points"""
+    
     basis_length = len(args["basis"])
-    array = np.zeros(args["width"]*args["height"], dtype=int)
+    pattern = np.zeros(args["width"]*args["height"], dtype=int)
     defects = np.zeros(args["width"]*args["height"], dtype=int)
     
     for position in args["defects"]:
-        defects[position] = 1
+        defects[position] = 1 # This may change later; 
+        # currently marking defect position
     
+    # Place random defects on positions which have not been specified in "defects".
     zeros = np.where(defects == 0)[0]
-    random_numbers = np.random.choice(zeros, args["random"], replace=False)
+    random_numbers = np.random.choice(zeros, args["random"], replace=False) 
     args["random_numbers"] = random_numbers
 
     for position in random_numbers:
-        defects[position] = 1
-    
+        defects[position] = 1 # This may change later; 
+        # currently marking defect position
+        
+    # Working in 1D
     counter = 0 
     for position in np.arange(len(array)):
         if defects[position] == 1:
-            array[position] = 1
+            pattern[position] = args["basis"][0] # re-start basis at defect
             counter = 1
         else:
             if args["basis"][counter] == 1:
-                array[position] = 1
-            counter = ((counter + 1) % basis_length)
+                pattern[position] = 1
+            counter = ((counter + 1) % basis_length) # clock maths!
     
-    array.shape = (args["height"], args["width"])
+    # 2D to the eye
+    pattern.shape = (args["height"], args["width"])
     defects.shape = (args["height"], args["width"])
-    return args, defects, [array]
+    
+    return args, defects, [pattern]
 
-def overlay(array_one, array_two):
-    dim = array_one.shape[0]
-    array = np.zeros((dim, dim))
-    for i in np.arange(dim):
-        for j in np.arange(dim):
-            if array_one[i,j] == 1 or array_two[i,j] == 1:
-               array[i,j] = 1
-    return array
+def overlay(pattern_bottom, pattern_top):
+    """OR-logic applied to two arrays element wise"""
+    
+    length = pattern_bottom.shape[0] # We know they are square
+    pattern_overlaid = np.zeros((length, length))
+    for i in np.arange(length):
+        for j in np.arange(length):
+            if pattern_bottom[i,j] == 1 or pattern_top[i,j] == 1:
+               pattern_overlaid[i,j] = 1
+               
+    return pattern_overlaid
 
-def visualise(args, defects, arrays):
-    arrays.insert(0,defects)
-    array_names = ["defects", "bottom", "top", "both"]
-    for index in np.arange(len(arrays)):
-        image = plt.imshow(arrays[index], interpolation='nearest')
+def visualise(args, defects, patterns):
+    """Matplotlib magic: Generates PNG files for defects, bottom layer, top layer
+    and overlaid. 1's (dots) are black, 0's (spaces) are white."""
+    
+    patterns.insert(0,defects)
+    names = ["defects", "bottom", "top", "overlaid"]
+    for index in np.arange(len(patterns)):
+        image = plt.imshow(patterns[index], interpolation='nearest')
         image.set_cmap('Greys')
         plt.axis('off')
-        plt.savefig(args["identity"]+"-"+array_names[index]+".png", bbox_inches='tight')
+        plt.savefig(args["identity"]+"-"+names[index]+".png", bbox_inches='tight')
         plt.close()
 
-def correlate(args, array):
-    # See Ziman, models of disorder. 
-    # Thanks to Andrew Goodwin for discussion
+def correlate(args, pattern):
+    """Calculates radial correlation function of pattern."""
+    
+    # See Ziman, Models of disorder p.? 
+    # Thanks to Andrew Goodwin and Jarvist Frost for discussion
     array[array == 0] = -1
 
     if args["cutoff"] is None:
-        X = array.shape[0]
-        Y = array.shape[1]
+        X = pattern.shape[0]
+        Y = pattern.shape[1]
     else:
         X = args["cutoff"]+1
         Y = args["cutoff"]+1
@@ -68,48 +84,69 @@ def correlate(args, array):
     dX = np.arange(-X+1, X)
     dY = np.arange(-Y+1, Y)
 
+    # Histogram: index is distance dx^2+dy^2 
     total = np.zeros((X-1)*(X-1)+(Y-1)*(Y-1)+1)
     count = np.zeros((X-1)*(X-1)+(Y-1)*(Y-1)+1)
+    
+    # Ugly, slow  - but working! -  loops
+    # (It really is slow...TODO: Parallelise?)
+    # Store points so that there's no double counting
     store=[]
     for x in np.arange(X):
         for y in np.arange(Y):
             for dx in dX:
-                if x+dx < 0:
+                # Pesky negative indices could be calculated 
+                # as [-1]==[last element in array] etc!
+                if x+dx < 0 or x+dx >= pattern.shape[0]:
                     pass
                 else:
                     for dy in dY:
-                        if y+dy < 0:
+                        if y+dy < 0 or y+dy >= pattern.shape[1]:
                             pass
                         else:    
+                            # Check if it's been done t'other way around
                             if [x+dx,y+dy,x,y] in store:
                                 pass
                             else:
+                                # You may now proceed 
                                 store.append([x,y,dx,dy])
-                                try:
-                                    product = array[x,y]*array[x+dx,y+dy]
-                                    total[dx*dx+dy*dy]=total[dx*dx+dy*dy]+product
-                                    count[dx*dx+dy*dy]=count[dx*dx+dy*dy]+1
-                                except IndexError:
-                                    pass
+                                product = array[x,y]*array[x+dx,y+dy]
+                                # Update histograms
+                                total[dx*dx+dy*dy]=total[dx*dx+dy*dy]+product
+                                count[dx*dx+dy*dy]=count[dx*dx+dy*dy]+1
+    
+    # Fudge to stop nan error. Everything's so easy with Numpy.
+    count = numpy.where(number==0,1,count)
+    
+    # Weight total by number of partners
     rho = np.divide(total,count)
-    r=[]
-    for index in np.arange(len(rho)):
-        r.append(np.sqrt(index)) 
+    
+    distance=[]
+    for distance_squared in np.arange(len(rho)):
+        distance.append(np.sqrt(distance_squared)) 
+    
+    # Plot 
     fig, ax = plt.subplots()
-    ax.stem(r, rho, markerfmt=' ')
+    ax.stem(distance, rho, markerfmt=' ')
     plt.savefig(args["identity"]+"-corr.png", 
                 bbox_inches='tight')
     plt.close()
-    with open(args["identity"]+"-corr.txt","w") as f:
-        f.write(str(np.vstack([np.multiply(r,r),r,rho, count]).T))
-        
     
-    correlation = 3 
+    with open(args["identity"]+"-corr.txt","w") as f:
+        f.write(str(np.vstack([np.multiply(distance,distance), 
+                               distance, rho, count]).T))
+        
+    # TODO: calculate correlation length
+    # dummy number, too ridiculous to be mistaken as truth...
+    correlation = 301249135 
     data = { 'correlation' : correlation }
     print ("Correlation length is: "+ str(correlation))
+    
     return data
 
 def save(args, data):
+    """ Saves inputs to file so that pattern can be reproduced """
+    
     with open(args["identity"]+".txt", "w") as f:
         for keys,values in args.items():
             f.write(str(keys)+" : " + str(values))
@@ -123,20 +160,20 @@ def main(args):
     
     print ("Dot-Space ID: " + args['identity'])
     
-    print ("Creating arrays...")
-    args, defects, arrays = create(args)
+    print ("Creating pattern...")
+    args, defects, patterns = create(args)
     
     if args["width"] == args["height"] and args["no_overlay"] is False: 
-        arrays.append(np.rot90(arrays[0]))
+        patterns.append(np.rot90(patterns[0]))
         print ("Overlaying arrays...")
-        arrays.append(overlay(arrays[0], arrays[1]))
+        patterns.append(overlay(patterns[0], patterns[1]))
     
     print ("Plotting visual representation of array...")
-    visualise(args, defects, arrays)
+    visualise(args, defects, patterns)
    
     if args["no_correlation"] is not True:
         print ("Calculating correlation lengths...")
-        data = correlate(args,arrays[-1])
+        data = correlate(args,patterns[-1])
     else: 
         data = False
 
@@ -167,33 +204,33 @@ if __name__=='__main__':
     parser.add_argument("-i", "--identity", required=True, type=str,
                         help="identity for filenames etc")
     parser.add_argument("-w", "--width", required=True, type=int, 
-                        help="width of array")
+                        help="width of pattern")
     parser.add_argument("-h", "--height", required=True, type=int, 
-                        help="height of arary")
+                        help="height of pattern")
     parser.add_argument("-b", "--basis", required=True, type=int, nargs='+',
-                        help="repeating basis pattern: 1=dot, 0=empty")
+                        help="repeating basis: 1=dot, 0=empty")
     parser.add_argument("-d", "--defects", type=int, nargs='+', default=[],
-                        help="position of defects (in 1D, count from 0)")
+                        help="position of defects (in 1D, remember count from 0)")
     parser.add_argument("-a", "--args", action='help', help="print args")
     parser.add_argument("-no", "--no_overlay", action="store_true", 
-                        help="if selected then only a single array is created")
+                        help="if selected then only a single pattern is created")
     parser.add_argument("-nc", "--no_correlation", action="store_true",
                         help="if selected then correlation length will not be"
                         " calculated")
     parser.add_argument("-r", "--random", type=int, default=0,
                         help="number of defects to place randomly throughout"
-                        "the array. Default is 0.")
+                        "the pattern. Default is 0.")
     parser.add_argument("-x", "--cutoff", type=int, default=None,
-                        help="largest horizontal/vertical distance for "
-                        "correlation calculation")
+                        help="largest horizontal and vertical distance for "
+                        "the correlation calculation")
     args = vars(parser.parse_args())
     for item in args["defects"]: 
         if item > (args["width"]*args["height"])-1:
-            raise ValueError("Defects specified beyond array size")
+            raise ValueError("Defects specified beyond pattern size")
     if len(args["basis"]) > args["width"]*args["height"]:
-            raise ValueError("Basis beyond array size")
+            raise ValueError("Basis specified beyond pattern size")
     if args["random"]  > (args["width"]*args["height"]):
-            raise ValueError("Number of defects cannot exceed array size")
+            raise ValueError("Number of defects cannot exceed pattern size")
     main(args) 
 
 
