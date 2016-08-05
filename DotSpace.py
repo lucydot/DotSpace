@@ -3,7 +3,12 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+from numba import jit # run forest, run! <--- if you don't have numba 
+# (http://numba.pydata.org/) installed, just remove this and line beginning 
+# @jit, or install it because it makes the loops run faasssttt. Dependencies:
+# llvm37 (xcode) and llvmlite.
 from IPython import embed # This is just for de-buggin'
+import timeit # ditto
 
 def create(args):
     """ Creates pattern with basis broken at defect points"""
@@ -69,31 +74,19 @@ def visualise(args, defects, patterns):
                     bbox_inches='tight')
         plt.close()
 
-def correlate(args, pattern):
-    """Calculates radial correlation function of pattern."""
+@jit
+def jitterbug(pattern,X,Y):
     
-    # See Ziman, Models of disorder p.? 
-    # Thanks to Andrew Goodwin and Jarvist Frost for discussion
-    pattern[pattern == 0] = -1
-
-    if args["cutoff"] is None:
-        X = pattern.shape[0]
-        Y = pattern.shape[1]
-    else:
-        X = args["cutoff"]+1
-        Y = args["cutoff"]+1
-
-    dX = np.arange(-X+1, X)
-    dY = np.arange(-Y+1, Y)
-
     # Histogram: index is distance dx^2+dy^2 
     total = np.zeros((X-1)*(X-1)+(Y-1)*(Y-1)+1)
     count = np.zeros((X-1)*(X-1)+(Y-1)*(Y-1)+1)
     
-    # Ugly, slow  - but working! -  loops
-    # (It really is slow...TODO: Parallelise?)
-    # Store points so that there's no double counting
-    store=[]
+    dX = np.arange(-X+1, X)
+    dY = np.arange(-Y+1, Y)
+    
+    pattern[pattern == 0] = -1
+    
+    store=np.array([])
     for x in np.arange(X):
         for y in np.arange(Y):
             for dx in dX:
@@ -111,11 +104,35 @@ def correlate(args, pattern):
                                 pass
                             else:
                                 # You may now proceed 
-                                store.append([x,y,dx,dy])
+                                np.append(store,[x,y,dx,dy],axis=0)
                                 product = pattern[x,y]*pattern[x+dx,y+dy]
                                 # Update histograms
                                 total[dx*dx+dy*dy]=total[dx*dx+dy*dy]+product
                                 count[dx*dx+dy*dy]=count[dx*dx+dy*dy]+1
+    return total, count
+   
+
+def correlate(args, pattern):
+    """Calculates radial correlation function of pattern."""
+    
+    # See Ziman, Models of disorder p.? 
+    # Thanks to Andrew Goodwin and Jarvist Frost for discussion
+
+    # Can't jit dictionaries
+    if args["cutoff"] is None:
+        X = pattern.shape[0]
+        Y = pattern.shape[1]
+    else:
+        X = args["cutoff"]+1
+        Y = args["cutoff"]+1
+
+    # Ugly, slow  - but working! -  loops
+    # (It really is slow...TODO: Parallelise?)
+    # Store points so that there's no double counting
+
+    # Jit-terbug magic
+    embed()
+    total, count = jitterbug(pattern,X,Y)
     
     # Fudge to stop nan error. Everything's so easy with Numpy.
     count = np.where(count==0,1,count)
