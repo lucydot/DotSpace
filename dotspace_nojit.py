@@ -146,9 +146,8 @@ def correlate(args, pattern):
     # Weight total by number of partners
     rho = np.divide(total,count)
     
-    distance=[]
-    for distance_squared in np.arange(len(rho)):
-        distance.append(np.sqrt(distance_squared)) 
+    distance_squared = np.arange((X-1)*(X-1) + (Y-1)*(Y-1) + 1)
+    distance = [np.sqrt(r2) for r2 in distance_squared]
     
     # Plot 
     fig, ax = plt.subplots()
