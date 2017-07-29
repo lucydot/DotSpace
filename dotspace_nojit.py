@@ -18,52 +18,78 @@ def timeit(method):
         return result
     return timed
 
-def create(args):
-    """ Creates pattern with basis broken at defect points"""
-    
-    basis_length = len(args["basis"])
-    pattern = np.zeros(args["width"]*args["height"], dtype=int)
+def defect_layer(args,defects):
+    """ Creates defect layer"""
+    # Place random defects on positions which have not been specified in 
+    # "defects".
+    for position in args["random_numbers"]:
+        defects[position] = 1 # This may change later; 
+        # currently marking defect position
+    defects.shape = (args["height"], args["width"])
+    return defects
+ 
+def get_randoms(args):
     defects = np.zeros(args["width"]*args["height"], dtype=int)
-    
     for position in args["defects"]:
         defects[position] = 1 # This may change later; 
         # currently marking defect position
     
-    # Place random defects on positions which have not been specified in 
-    # "defects".
     zeros = np.where(defects == 0)[0]
-    random_numbers = np.random.choice(zeros, args["random"], replace=False) 
-    args["random_numbers"] = random_numbers
+    if bool(args["random"]) is True:
+        random_numbers = np.random.choice(zeros, args["random"], replace=False) 
+    else:
+        random_numbers = []
+    return random_numbers,defects
 
-    for position in random_numbers:
-        defects[position] = 1 # This may change later; 
-        # currently marking defect position
-        
+def create(args, defects, orientation):
+    """ Creates pattern with basis broken at defect points"""
+    
+    pattern = np.zeros(args["width"]*args["height"], dtype=int)
+    
+    if orientation == 90:
+        steps = 1
+        basis = args["basis90"]
+    elif orientation == 180:
+        steps = 2
+        basis = args["basis180"]
+    elif orientation == 270:
+        steps = 3
+        basis = args["basis270"]
+    elif orientation == 0:
+        steps = 0
+        basis = args["basis"]
+
+    basis_length = len(basis)
+    
+    defects = np.rot90(defects,steps)
+    
+    defects = np.ravel(defects)
+
     # Working in 1D
     counter = 0 
     for position in np.arange(len(pattern)):
         if defects[position] == 1:
-            pattern[position] = args["basis"][0] # re-start basis at defect
+            pattern[position] = basis[0] # re-start basis at defect
             counter = 1
         else:
-            if args["basis"][counter] == 1:
+            if basis[counter] == 1:
                 pattern[position] = 1
             counter = ((counter + 1) % basis_length) # clock maths!
     
     # 2D to the eye
     pattern.shape = (args["height"], args["width"])
-    defects.shape = (args["height"], args["width"])
-    
-    return args, defects, [pattern]
+    pattern = np.rot90(pattern,4-steps)    
+    return pattern
 
-def overlay(pattern_bottom, pattern_top):
-    """OR-logic applied to two arrays element wise"""
+def overlay(pattern):
+    """generator expression used"""
     
-    length = pattern_bottom.shape[0] # We know they are square
+    length = pattern[0].shape[0] # We know they are square
     pattern_overlaid = np.zeros((length, length))
+    
     for i in np.arange(length):
         for j in np.arange(length):
-            if pattern_bottom[i,j] == 1 or pattern_top[i,j] == 1:
+            if any(x[i,j] == 1 for x in pattern):
                pattern_overlaid[i,j] = 1
                
     return pattern_overlaid
@@ -71,15 +97,29 @@ def overlay(pattern_bottom, pattern_top):
 def visualise(args, defects, patterns):
     """Matplotlib magic: Generates PNG files for defects, bottom layer, 
     top layer and overlaid. 1's (dots) are black, 0's (spaces) are white."""
+    image = plt.imshow(defects, interpolation='nearest')
+    image.set_cmap('Greys')
+    plt.axis('off')
+    plt.savefig(args["identity"]+"-"+"defects"+".png", 
+                    bbox_inches='tight',dpi=500)
+    plt.close()
     
-    patterns.insert(0,defects)
-    names = ["defects", "bottom", "top", "overlaid"]
-    for index in np.arange(len(patterns)):
+    if np.all(patterns[-1]):
+        print ("WARNING: YOU HAVE A FULLY DOTTED DOTSPACE") 
+    image = plt.imshow(patterns[-1], interpolation='nearest')
+    image.set_cmap('Greys')
+    plt.axis('off')
+    plt.savefig(args["identity"]+"-"+"overlaid"+".png", 
+                    bbox_inches='tight',dpi=500)
+    plt.close()
+
+
+    for index,x in enumerate(args["orientations"]):
         image = plt.imshow(patterns[index], interpolation='nearest')
         image.set_cmap('Greys')
         plt.axis('off')
-        plt.savefig(args["identity"]+"-"+names[index]+".png", 
-                    bbox_inches='tight')
+        plt.savefig(args["identity"]+"-layer_"+str(x)+".png", 
+                    bbox_inches='tight',dpi=500)
         plt.close()
 
 def jitterbug(pattern,X,Y):
@@ -184,13 +224,18 @@ def main(args):
     
     print ("Dot-Space ID: " + args['identity'])
     
-    print ("Creating pattern...")
-    args, defects, patterns = create(args)
+    print ("Creating defect layer")
+    args["random_numbers"], defect_initial = get_randoms(args)
+    defects = defect_layer(args,defect_initial)
     
-    if args["width"] == args["height"] and args["no_overlay"] is False: 
-        patterns.append(np.rot90(patterns[0]))
+    patterns = []
+    for x in args["orientations"]:
+        print ("Creating layer %i" % (x))
+        patterns.append(create(args, defects, x))
+    
+    if args["width"] == args["height"]: 
         print ("Overlaying patterns...")
-        patterns.append(overlay(patterns[0], patterns[1]))
+        patterns.append(overlay(patterns))
     
     print ("Plotting visual representation of pattern...")
     visualise(args, defects, patterns)
@@ -233,13 +278,16 @@ if __name__=='__main__':
                         help="height of pattern")
     parser.add_argument("-b", "--basis", required=True, type=int, nargs='+',
                         help="repeating basis: 1=dot, 0=empty")
+    parser.add_argument("-b90", "--basis90", type=int, nargs='+',
+                        help="repeating basis: 1=dot, 0=empty")
+    parser.add_argument("-b180", "--basis180", type=int, nargs='+',
+                        help="repeating basis: 1=dot, 0=empty")
+    parser.add_argument("-b270", "--basis270", type=int, nargs='+',
+                        help="repeating basis: 1=dot, 0=empty")
     parser.add_argument("-d", "--defects", type=int, nargs='+', default=[],
                         help="position of defects "
                         "(in 1D, remember count from 0)")
     parser.add_argument("-a", "--args", action='help', help="print args")
-    parser.add_argument("-no", "--no_overlay", action="store_true", 
-                        help="if selected then only a single pattern is "
-                             "created")
     parser.add_argument("-nc", "--no_correlation", action="store_true",
                         help="if selected then correlation length will not be"
                              " calculated")
@@ -251,15 +299,23 @@ if __name__=='__main__':
                              "the correlation calculation")
     parser.add_argument("-nn","--nonumba", action='store_true', default=False,
                         help="if selected, then numba will not be used")
+    parser.add_argument("-o","--orientations", type=int, nargs='+', default=[0,90],
+                        help="orientation of layers")
     args = vars(parser.parse_args())
     
     for item in args["defects"]: 
         if item > (args["width"]*args["height"])-1:
             raise ValueError("Defects specified beyond pattern size")
     if len(args["basis"]) > args["width"]*args["height"]:
-            raise ValueError("Basis specified beyond pattern size")
+        raise ValueError("Basis specified beyond pattern size")
     if args["random"]  > (args["width"]*args["height"]):
-            raise ValueError("Number of defects cannot exceed pattern size")
+        raise ValueError("Number of defects cannot exceed pattern size")
+    if (args["basis90"] == None) and (90 in args["orientations"]):
+        args["basis90"] = args["basis"]
+    if (args["basis180"] == None) and (180 in args["orientations"]):
+        args["basis180"] = args["basis"]
+    if (args["basis270"] == None) and (270 in args["orientations"]):
+        args["basis270"] = args["basis"]
     
     main(args) 
 
