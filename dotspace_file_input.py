@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from IPython import embed # This is just for de-buggin'
 import time
+import os
 
 def timeit(method):
 
@@ -166,7 +167,7 @@ def correlate(args, pattern):
     # Thanks to Andrew Goodwin and Jarvist Frost for discussion
 
     # Can't jit dictionaries
-    if args["cutoff"] is None:
+    if "cutoff" not in args:
         X = pattern.shape[0]
         Y = pattern.shape[1]
     else:
@@ -221,6 +222,8 @@ def save(args, data):
                 f.write('\n')
 
 def main(args):
+    os.mkdir(args["identity"])
+    os.chdir(args["identity"])
     
     print ("Dot-Space ID: " + args['identity'])
     
@@ -240,7 +243,7 @@ def main(args):
     print ("Plotting visual representation of pattern...")
     visualise(args, defects, patterns)
    
-    if args["no_correlation"] is not True:
+    if args["correlation"] == True:
         print ("Calculating correlation lengths...")
         data = correlate(args,patterns[-1])
     else: 
@@ -251,13 +254,63 @@ def main(args):
     
     print ("All done.")
 
+def import_input():
+
+    with open("INPUT") as f:
+        for line in f:
+            if line.startswith("#"):
+                pass
+            else:
+       	        if line.split("=")[0].strip() == "IDENTITY":
+		    args["identity"] = line.split("=")[1].strip()
+	        if line.split("=")[0].strip() == "WIDTH":    
+		    args["width"] = int(line.split("=")[1].strip())
+	        if line.split("=")[0].strip() == "HEIGHT":           
+		    args["height"] = int(line.split("=")[1].strip())
+	        if line.split("=")[0].strip() == "BASIS":
+	       	    if "x" in line.split("=")[1]:
+		        args["basis"] = "x"
+		    else:
+		        args["basis"] = list(map(int,line.split("=")[1].strip()))
+	        if line.split("=")[0].strip() == "BASIS90":
+		    if "x" in line.split("=")[1]:
+		        args["basis90"] = "x"
+	            else:
+		        args["basis90"] = list(map(int,line.split("=")[1].strip()))
+	        if line.split("=")[0].strip() == "BASIS180":
+		    if "x" in line.split("=")[1]:
+		        args["basis180"] = "x"
+		    else:
+		        args["basis180"] = list(map(int,line.split("=")[1].strip()))
+	        if line.split("=")[0].strip() == "BASIS270":
+		    if "x" in line.split("=")[1]:
+		        args["basis270"] = "x"
+		    else:
+		        args["basis270"] = list(map(int,line.split("=")[1].strip()))
+	        if line.split("=")[0].strip() == "DEFECTS":
+		    if "x" in line.split("=")[1]:
+		        args["defects"] = "x"
+		    else:
+		        args["defects"] = [int(x) for x in line.split("=")[1].split()]
+	        if line.split("=")[0].strip() == "CORRELATION":
+		    args["correlation"] = line.split("=")[1].strip().lower() in ("yes","true")
+	        if line.split("=")[0].strip() == "RANDOM_DEFECTS":
+		    args["random"] = int(line.split("=")[1].strip())
+	        if line.split("=")[0].strip() == "CUTOFF":
+		    args["cutoff"] = int(line.split("=")[1].strip())
+	        if line.split("=")[0].strip() == "ULAM":
+		    args["ulam"] = line.split("=")[1].strip().lower() in ("yes","true")
+	        if line.split("=")[0].strip() == "ORIENTATIONS":
+		    args["orientations"] = [int(x) for x in line.split("=")[1].split()]
+    return args
 
 if __name__=='__main__':
     philosophy = """
    -------------------------------------------------------------------
    |  Dotty for space code.                                          |
-   |  Written by Lucy Whalley (github: lucydot) to analyse Dot-Space | 
-   |  drawings by Richard Scott (richard-md-scott.tumblr.com).       |
+   |  Written by Lucy Whalley (github: lucydot) to test-run and      |
+   |   analyse the Dot-Space drawings create by Richard Scott         | 
+   |  (richard-md-scott.tumblr.com).                                 |
    |                                                                 |
    |  Remember! Indexing starts from zero....                        |
    |                                                                 |
@@ -267,56 +320,40 @@ if __name__=='__main__':
    -------------------------------------------------------------------
      """ 
     print (philosophy)
-
-    parser=argparse.ArgumentParser(description="Dotty for space code",
-                                   add_help=False)
-    parser.add_argument("-i", "--identity", required=True, type=str,
-                        help="identity for filenames etc")
-    parser.add_argument("-w", "--width", required=True, type=int, 
-                        help="width of pattern")
-    parser.add_argument("-h", "--height", required=True, type=int, 
-                        help="height of pattern")
-    parser.add_argument("-b", "--basis", required=True, type=int, nargs='+',
-                        help="repeating basis: 1=dot, 0=empty")
-    parser.add_argument("-b90", "--basis90", type=int, nargs='+',
-                        help="repeating basis: 1=dot, 0=empty")
-    parser.add_argument("-b180", "--basis180", type=int, nargs='+',
-                        help="repeating basis: 1=dot, 0=empty")
-    parser.add_argument("-b270", "--basis270", type=int, nargs='+',
-                        help="repeating basis: 1=dot, 0=empty")
-    parser.add_argument("-d", "--defects", type=int, nargs='+', default=[],
-                        help="position of defects "
-                        "(in 1D, remember count from 0)")
-    parser.add_argument("-a", "--args", action='help', help="print args")
-    parser.add_argument("-nc", "--no_correlation", action="store_true",
-                        help="if selected then correlation length will not be"
-                             " calculated")
-    parser.add_argument("-r", "--random", type=int, default=0,
-                        help="number of defects to place randomly throughout"
-                             "the pattern. Default is 0.")
-    parser.add_argument("-x", "--cutoff", type=int, default=None,
-                        help="largest horizontal and vertical distance for "
-                             "the correlation calculation")
-    parser.add_argument("-nn","--nonumba", action='store_true', default=False,
-                        help="if selected, then numba will not be used")
-    parser.add_argument("-o","--orientations", type=int, nargs='+', default=[0,90],
-                        help="orientation of layers")
-    args = vars(parser.parse_args())
-    
+    args = dict()        
+    args = import_input()
+    if 'random' not in args:
+        args["random"] = 0
+    if 'correlation' not in args:
+        args["correlation"] = False
+    if 'cutoff' not in args:
+        args["cutoff"] = None
+    if 'defects' not in args:
+        args["defects"] = []
+    if 'identity' not in args:
+	raise ValueError("You must supply identity")
+    if 'basis' not in args:
+        raise ValueError("You must supply a basis")
+    if 'width' not in args:
+        raise ValueError("You must supply a width")
+    if 'height' not in args:
+        raise ValueError("You must supply a height")
     for item in args["defects"]: 
         if item > (args["width"]*args["height"])-1:
             raise ValueError("Defects specified beyond pattern size")
     if len(args["basis"]) > args["width"]*args["height"]:
         raise ValueError("Basis specified beyond pattern size")
+    if all((p == 1) or (p ==0) for p in args["basis"]) is False:
+        raise ValueError("Basis must consist of 1's and 0's only")
     if args["random"]  > (args["width"]*args["height"]):
         raise ValueError("Number of defects cannot exceed pattern size")
-    if (args["basis90"] == None) and (90 in args["orientations"]):
+    if ("basis90" not in args) and (90 in args["orientations"]):
         args["basis90"] = args["basis"]
-    if (args["basis180"] == None) and (180 in args["orientations"]):
+    if ("basis180" not in args) and (180 in args["orientations"]):
         args["basis180"] = args["basis"]
-    if (args["basis270"] == None) and (270 in args["orientations"]):
+    if ("basis270" not in args) and (270 in args["orientations"]):
         args["basis270"] = args["basis"]
-    
+       
     main(args) 
 
 
