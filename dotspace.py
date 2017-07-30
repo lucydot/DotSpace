@@ -3,72 +3,94 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-from numba import jit # run forest, run! <--- if you don't have numba 
-# (http://numba.pydata.org/) installed, just remove this and line beginning 
-# @jit, or install it because it makes the loops run faasssttt. Dependencies:
-# llvm37 (xcode) and llvmlite.
 from IPython import embed # This is just for de-buggin'
-import time                                                
+import time
+import os
 
 def timeit(method):
-      
+
     def timed(*args, **kw):
         ts = time.time()
         result = method(*args, **kw)
         te = time.time()
-                      
+
         print ('%r (%r, %r) %2.2f sec' % \
-            (method.__name__, args, kw, te-ts))
+                (method.__name__, args, kw, te-ts))
         return result
-                                                         
     return timed
 
-def create(args):
-    """ Creates pattern with basis broken at defect points"""
-    
-    basis_length = len(args["basis"])
-    pattern = np.zeros(args["width"]*args["height"], dtype=int)
+def defect_layer(args,defects):
+    """ Creates defect layer"""
+    # Place random defects on positions which have not been specified in 
+    # "defects".
+    for position in args["random_numbers"]:
+        defects[position] = 1 # This may change later; 
+        # currently marking defect position
+    defects.shape = (args["height"], args["width"])
+    return defects
+ 
+def get_randoms(args):
     defects = np.zeros(args["width"]*args["height"], dtype=int)
-    
     for position in args["defects"]:
         defects[position] = 1 # This may change later; 
         # currently marking defect position
     
-    # Place random defects on positions which have not been specified in 
-    # "defects".
     zeros = np.where(defects == 0)[0]
-    random_numbers = np.random.choice(zeros, args["random"], replace=False) 
-    args["random_numbers"] = random_numbers
+    if bool(args["random"]) is True:
+        random_numbers = np.random.choice(zeros, args["random"], replace=False) 
+    else:
+        random_numbers = []
+    return random_numbers,defects
 
-    for position in random_numbers:
-        defects[position] = 1 # This may change later; 
-        # currently marking defect position
-        
+def create(args, defects, orientation):
+    """ Creates pattern with basis broken at defect points"""
+    
+    pattern = np.zeros(args["width"]*args["height"], dtype=int)
+    
+    if orientation == 90:
+        steps = 1
+        basis = args["basis90"]
+    elif orientation == 180:
+        steps = 2
+        basis = args["basis180"]
+    elif orientation == 270:
+        steps = 3
+        basis = args["basis270"]
+    elif orientation == 0:
+        steps = 0
+        basis = args["basis"]
+
+    basis_length = len(basis)
+    
+    defects = np.rot90(defects,steps)
+    
+    defects = np.ravel(defects)
+
     # Working in 1D
     counter = 0 
     for position in np.arange(len(pattern)):
         if defects[position] == 1:
-            pattern[position] = args["basis"][0] # re-start basis at defect
+            pattern[position] = basis[0] # re-start basis at defect
             counter = 1
         else:
-            if args["basis"][counter] == 1:
+            if basis[counter] == 1:
                 pattern[position] = 1
             counter = ((counter + 1) % basis_length) # clock maths!
     
     # 2D to the eye
     pattern.shape = (args["height"], args["width"])
-    defects.shape = (args["height"], args["width"])
-    
-    return args, defects, [pattern]
+    pattern = np.rot90(pattern,4-steps)    
+    return pattern
 
-def overlay(pattern_bottom, pattern_top):
-    """OR-logic applied to two arrays element wise"""
+def overlay(pattern):
+    """generator expression used"""
     
-    length = pattern_bottom.shape[0] # We know they are square
+    length = pattern[0].shape[0] # We know they are square
     pattern_overlaid = np.zeros((length, length))
+    
     for i in np.arange(length):
         for j in np.arange(length):
-            if pattern_bottom[i,j] == 1 or pattern_top[i,j] == 1:
+            if any(x[i,j] == 1 for x in pattern):
                pattern_overlaid[i,j] = 1
                
     return pattern_overlaid
@@ -76,18 +98,31 @@ def overlay(pattern_bottom, pattern_top):
 def visualise(args, defects, patterns):
     """Matplotlib magic: Generates PNG files for defects, bottom layer, 
     top layer and overlaid. 1's (dots) are black, 0's (spaces) are white."""
+    image = plt.imshow(defects, interpolation='nearest')
+    image.set_cmap('Greys')
+    plt.axis('off')
+    plt.savefig(args["identity"]+"-"+"defects"+".png", 
+                    bbox_inches='tight',dpi=500)
+    plt.close()
     
-    patterns.insert(0,defects)
-    names = ["defects", "bottom", "top", "overlaid"]
-    for index in np.arange(len(patterns)):
+    if np.all(patterns[-1]):
+        print ("WARNING: YOU HAVE A FULLY DOTTED DOTSPACE") 
+    image = plt.imshow(patterns[-1], interpolation='nearest')
+    image.set_cmap('Greys')
+    plt.axis('off')
+    plt.savefig(args["identity"]+"-"+"overlaid"+".png", 
+                    bbox_inches='tight',dpi=500)
+    plt.close()
+
+
+    for index,x in enumerate(args["orientations"]):
         image = plt.imshow(patterns[index], interpolation='nearest')
         image.set_cmap('Greys')
         plt.axis('off')
-        plt.savefig(args["identity"]+"-"+names[index]+".png", 
-                    bbox_inches='tight')
+        plt.savefig(args["identity"]+"-layer_"+str(x)+".png", 
+                    bbox_inches='tight',dpi=500)
         plt.close()
 
-@jit
 def jitterbug(pattern,X,Y):
     
     # Histogram: index is distance dx^2+dy^2 
@@ -117,7 +152,7 @@ def jitterbug(pattern,X,Y):
                                 pass
                             else:
                                 # You may now proceed 
-                                store = np.vstack((store,[x,y,dx,dy]))
+                                np.vstack((store,[x,y,dx,dy]))
                                 product = pattern[x,y]*pattern[x+dx,y+dy]
                                 # Update histograms
                                 total[dx*dx+dy*dy]=total[dx*dx+dy*dy]+product
@@ -132,7 +167,7 @@ def correlate(args, pattern):
     # Thanks to Andrew Goodwin and Jarvist Frost for discussion
 
     # Can't jit dictionaries
-    if args["cutoff"] is None:
+    if "cutoff" not in args:
         X = pattern.shape[0]
         Y = pattern.shape[1]
     else:
@@ -152,9 +187,8 @@ def correlate(args, pattern):
     # Weight total by number of partners
     rho = np.divide(total,count)
     
-    distance=[]
-    for distance_squared in np.arange(len(rho)):
-        distance.append(np.sqrt(distance_squared)) 
+    distance_squared = np.arange((X-1)*(X-1) + (Y-1)*(Y-1) + 1)
+    distance = [np.sqrt(r2) for r2 in distance_squared]
     
     # Plot 
     fig, ax = plt.subplots()
@@ -188,21 +222,28 @@ def save(args, data):
                 f.write('\n')
 
 def main(args):
+    os.mkdir(args["identity"])
+    os.chdir(args["identity"])
     
     print ("Dot-Space ID: " + args['identity'])
     
-    print ("Creating pattern...")
-    args, defects, patterns = create(args)
+    print ("Creating defect layer")
+    args["random_numbers"], defect_initial = get_randoms(args)
+    defects = defect_layer(args,defect_initial)
     
-    if args["width"] == args["height"] and args["no_overlay"] is False: 
-        patterns.append(np.rot90(patterns[0]))
+    patterns = []
+    for x in args["orientations"]:
+        print ("Creating layer %i" % (x))
+        patterns.append(create(args, defects, x))
+    
+    if args["width"] == args["height"]: 
         print ("Overlaying patterns...")
-        patterns.append(overlay(patterns[0], patterns[1]))
+        patterns.append(overlay(patterns))
     
     print ("Plotting visual representation of pattern...")
     visualise(args, defects, patterns)
    
-    if args["no_correlation"] is not True:
+    if args["correlation"] == True:
         print ("Calculating correlation lengths...")
         data = correlate(args,patterns[-1])
     else: 
@@ -213,13 +254,67 @@ def main(args):
     
     print ("All done.")
 
+def parse_basis_input(line,name):
+        if "x" in line.split("=")[1]:
+            args[name] = []
+	    entries = line.split("=")[1].split()
+	    for e in entries:
+		for i in range(int(e.split("x")[0])):
+	            args[name].append(int(e.split("x")[1]))
+	else:
+	    args[name] = list(map(int,line.split("=")[1].strip()))
+ 
+def import_input():
+
+    with open("INPUT") as f:
+        for line in f:
+            if line.startswith("#"):
+                pass
+            else:
+       	        if line.split("=")[0].strip() == "IDENTITY":
+		    args["identity"] = line.split("=")[1].strip()
+	        if line.split("=")[0].strip() == "WIDTH":    
+		    args["width"] = int(line.split("=")[1].strip())
+	        if line.split("=")[0].strip() == "HEIGHT":           
+		    args["height"] = int(line.split("=")[1].strip())
+	        if line.split("=")[0].strip() == "BASIS":
+	       	    parse_basis_input(line,"basis")
+                if line.split("=")[0].strip() == "BASIS90":
+	            parse_basis_input(line,"basis90")
+		if line.split("=")[0].strip() == "BASIS180":
+	            parse_basis_input(line, "basis180")
+		if line.split("=")[0].strip() == "BASIS270":
+		    parse_basis_input(line, "basis270")
+  		if line.split("=")[0].strip() == "DEFECTS":
+		    if "x" in line.split("=")[1]:
+			# WIP: not sure how to specify input
+	       	        args[defects] = []
+	                entries = line.split("=")[1].split()
+                        
+	                for e in entries:
+		            for i in range(int(e.split("x")[0])):
+	                        args[name].append(int(e.split("x")[1]))
+		    else:
+		        args["defects"] = [int(x) for x in line.split("=")[1].split()]
+	        if line.split("=")[0].strip() == "CORRELATION":
+		    args["correlation"] = line.split("=")[1].strip().lower() in ("yes","true")
+	        if line.split("=")[0].strip() == "RANDOM_DEFECTS":
+		    args["random"] = int(line.split("=")[1].strip())
+	        if line.split("=")[0].strip() == "CUTOFF":
+		    args["cutoff"] = int(line.split("=")[1].strip())
+	        if line.split("=")[0].strip() == "ULAM":
+		    args["ulam"] = line.split("=")[1].strip().lower() in ("yes","true")
+	        if line.split("=")[0].strip() == "ORIENTATIONS":
+		    args["orientations"] = [int(x) for x in line.split("=")[1].split()]
+    return args
 
 if __name__=='__main__':
     philosophy = """
    -------------------------------------------------------------------
    |  Dotty for space code.                                          |
-   |  Written by Lucy Whalley (github: lucydot) to analyse Dot-Space | 
-   |  drawings by Richard Scott (richard-md-scott.tumblr.com).       |
+   |  Written by Lucy Whalley (github: lucydot) to test-run and      |
+   |   analyse the Dot-Space drawings create by Richard Scott         | 
+   |  (richard-md-scott.tumblr.com).                                 |
    |                                                                 |
    |  Remember! Indexing starts from zero....                        |
    |                                                                 |
@@ -229,45 +324,40 @@ if __name__=='__main__':
    -------------------------------------------------------------------
      """ 
     print (philosophy)
-
-    parser=argparse.ArgumentParser(description="Dotty for space code",
-                                   add_help=False)
-    parser.add_argument("-i", "--identity", required=True, type=str,
-                        help="identity for filenames etc")
-    parser.add_argument("-w", "--width", required=True, type=int, 
-                        help="width of pattern")
-    parser.add_argument("-h", "--height", required=True, type=int, 
-                        help="height of pattern")
-    parser.add_argument("-b", "--basis", required=True, type=int, nargs='+',
-                        help="repeating basis: 1=dot, 0=empty")
-    parser.add_argument("-d", "--defects", type=int, nargs='+', default=[],
-                        help="position of defects "
-                        "(in 1D, remember count from 0)")
-    parser.add_argument("-a", "--args", action='help', help="print args")
-    parser.add_argument("-no", "--no_overlay", action="store_true", 
-                        help="if selected then only a single pattern is "
-                             "created")
-    parser.add_argument("-nc", "--no_correlation", action="store_true",
-                        help="if selected then correlation length will not be"
-                             " calculated")
-    parser.add_argument("-r", "--random", type=int, default=0,
-                        help="number of defects to place randomly throughout"
-                             "the pattern. Default is 0.")
-    parser.add_argument("-x", "--cutoff", type=int, default=None,
-                        help="largest horizontal and vertical distance for "
-                             "the correlation calculation")
-    parser.add_argument("-nn","--nonumba", action='store_true', default=False,
-                        help="if selected, then numba will not be used")
-    args = vars(parser.parse_args())
-    
+    args = dict()        
+    args = import_input()
+    if 'random' not in args:
+        args["random"] = 0
+    if 'correlation' not in args:
+        args["correlation"] = False
+    if 'cutoff' not in args:
+        args["cutoff"] = None
+    if 'defects' not in args:
+        args["defects"] = []
+    if 'identity' not in args:
+	raise ValueError("You must supply identity")
+    if 'basis' not in args:
+        raise ValueError("You must supply a basis")
+    if 'width' not in args:
+        raise ValueError("You must supply a width")
+    if 'height' not in args:
+        raise ValueError("You must supply a height")
     for item in args["defects"]: 
         if item > (args["width"]*args["height"])-1:
             raise ValueError("Defects specified beyond pattern size")
     if len(args["basis"]) > args["width"]*args["height"]:
-            raise ValueError("Basis specified beyond pattern size")
+        raise ValueError("Basis specified beyond pattern size")
+    if all((p == 1) or (p ==0) for p in args["basis"]) is False:
+        raise ValueError("Basis must consist of 1's and 0's only")
     if args["random"]  > (args["width"]*args["height"]):
-            raise ValueError("Number of defects cannot exceed pattern size")
-    
+        raise ValueError("Number of defects cannot exceed pattern size")
+    if ("basis90" not in args) and (90 in args["orientations"]):
+        args["basis90"] = args["basis"]
+    if ("basis180" not in args) and (180 in args["orientations"]):
+        args["basis180"] = args["basis"]
+    if ("basis270" not in args) and (270 in args["orientations"]):
+        args["basis270"] = args["basis"]
+       
     main(args) 
 
 
