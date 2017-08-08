@@ -3,6 +3,8 @@ TODO
 neaten codee - move to class based SEE WORK DONE IN DROPBOX
 push onto kelvin**
 correlation length testing**SEE WORK DONE IN DROPBOX
+Use flask or similar to publish as an app on the web
+
 
 ULAM version - start in the middle and go outwards - with option for E/S/W/N beginning and running clockwise from this. (actually, this is just a rotation at thend of that layer creation) - only true for odd squares.** question how do you want the defects defined? as previous??
 rectangle grids not square grids**.
