@@ -49,16 +49,16 @@ def create(args, defects, orientation):
     
     if orientation == 90:
         steps = 1
-        basis = args["basis90"]
+        basis = args["basis90_digital"]
     elif orientation == 180:
         steps = 2
-        basis = args["basis180"]
+        basis = args["basis180_digital"]
     elif orientation == 270:
         steps = 3
-        basis = args["basis270"]
+        basis = args["basis270_digital"]
     elif orientation == 0:
         steps = 0
-        basis = args["basis"]
+        basis = args["basis_digital"]
 
     basis_length = len(basis)
     
@@ -255,15 +255,12 @@ def main(args):
     print ("All done.")
 
 def parse_basis_input(line,name):
-        if "x" in line.split("=")[1]:
-            args[name] = []
-            entries = line.split("=")[1].split()
-            for e in entries:
-                for i in range(int(e.split("x")[0])):
-                    args[name].append(int(e.split("x")[1]))
-        else:
-            args[name] = list(map(int,line.split("=")[1].strip()))
- 
+        args[name+"_digital"] = []
+        digits_list = list(map(int,line.split("=")[1].strip()))
+        for x in digits_list:
+            args[name+"_digital"] = args[name+"_digital"] + [1] + [0]*(x-1)
+        args[name] = line.split("=")[1].strip()
+
 def import_input():
 
     with open('INPUT') as f:
@@ -291,9 +288,9 @@ def import_input():
                         args[defects] = []
                         entries = line.split("=")[1].split()
                         
-                    for e in entries:
-                        for i in range(int(e.split("x")[0])):
-                            args[name].append(int(e.split("x")[1]))
+                        for e in entries:
+                            for i in range(int(e.split("x")[0])):
+                                args[name].append(int(e.split("x")[1]))
                     else:
                         args["defects"] = [int(x) for x in line.split("=")[1].split()]
                 if line.split("=")[0].strip() == "CORRELATION":
@@ -347,8 +344,6 @@ if __name__=='__main__':
             raise ValueError("Defects specified beyond pattern size")
     if len(args["basis"]) > args["width"]*args["height"]:
         raise ValueError("Basis specified beyond pattern size")
-    if all((p == 1) or (p ==0) for p in args["basis"]) is False:
-        raise ValueError("Basis must consist of 1's and 0's only")
     if args["random"]  > (args["width"]*args["height"]):
         raise ValueError("Number of defects cannot exceed pattern size")
     if ("basis90" not in args) and (90 in args["orientations"]):
