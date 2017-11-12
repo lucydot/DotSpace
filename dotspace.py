@@ -257,55 +257,55 @@ def main(args):
 def parse_basis_input(line,name):
         if "x" in line.split("=")[1]:
             args[name] = []
-	    entries = line.split("=")[1].split()
-	    for e in entries:
-		for i in range(int(e.split("x")[0])):
-	            args[name].append(int(e.split("x")[1]))
-	else:
-	    args[name] = list(map(int,line.split("=")[1].strip()))
+            entries = line.split("=")[1].split()
+            for e in entries:
+                for i in range(int(e.split("x")[0])):
+                    args[name].append(int(e.split("x")[1]))
+        else:
+            args[name] = list(map(int,line.split("=")[1].strip()))
  
 def import_input():
 
-    with open("INPUT") as f:
+    with open('INPUT') as f:
         for line in f:
             if line.startswith("#"):
                 pass
             else:
-       	        if line.split("=")[0].strip() == "IDENTITY":
-		    args["identity"] = line.split("=")[1].strip()
-	        if line.split("=")[0].strip() == "WIDTH":    
-		    args["width"] = int(line.split("=")[1].strip())
-	        if line.split("=")[0].strip() == "HEIGHT":           
-		    args["height"] = int(line.split("=")[1].strip())
-	        if line.split("=")[0].strip() == "BASIS":
-	       	    parse_basis_input(line,"basis")
+                if line.split("=")[0].strip() == "IDENTITY":
+                    args["identity"] = line.split("=")[1].strip()
+                if line.split("=")[0].strip() == "WIDTH":    
+                    args["width"] = int(line.split("=")[1].strip())
+                if line.split("=")[0].strip() == "HEIGHT":           
+                    args["height"] = int(line.split("=")[1].strip())
+                if line.split("=")[0].strip() == "BASIS":
+                    parse_basis_input(line,"basis")
                 if line.split("=")[0].strip() == "BASIS90":
-	            parse_basis_input(line,"basis90")
-		if line.split("=")[0].strip() == "BASIS180":
-	            parse_basis_input(line, "basis180")
-		if line.split("=")[0].strip() == "BASIS270":
-		    parse_basis_input(line, "basis270")
-  		if line.split("=")[0].strip() == "DEFECTS":
-		    if "x" in line.split("=")[1]:
-			# WIP: not sure how to specify input
-	       	        args[defects] = []
-	                entries = line.split("=")[1].split()
+                    parse_basis_input(line,"basis90")
+                if line.split("=")[0].strip() == "BASIS180":
+                    parse_basis_input(line, "basis180")
+                if line.split("=")[0].strip() == "BASIS270":
+                    parse_basis_input(line, "basis270")
+                if line.split("=")[0].strip() == "DEFECTS":
+                    if "x" in line.split("=")[1]:
+            # WIP: not sure how to specify input
+                        args[defects] = []
+                        entries = line.split("=")[1].split()
                         
-	                for e in entries:
-		            for i in range(int(e.split("x")[0])):
-	                        args[name].append(int(e.split("x")[1]))
-		    else:
-		        args["defects"] = [int(x) for x in line.split("=")[1].split()]
-	        if line.split("=")[0].strip() == "CORRELATION":
-		    args["correlation"] = line.split("=")[1].strip().lower() in ("yes","true")
-	        if line.split("=")[0].strip() == "RANDOM_DEFECTS":
-		    args["random"] = int(line.split("=")[1].strip())
-	        if line.split("=")[0].strip() == "CUTOFF":
-		    args["cutoff"] = int(line.split("=")[1].strip())
-	        if line.split("=")[0].strip() == "ULAM":
-		    args["ulam"] = line.split("=")[1].strip().lower() in ("yes","true")
-	        if line.split("=")[0].strip() == "ORIENTATIONS":
-		    args["orientations"] = [int(x) for x in line.split("=")[1].split()]
+                    for e in entries:
+                        for i in range(int(e.split("x")[0])):
+                            args[name].append(int(e.split("x")[1]))
+                    else:
+                        args["defects"] = [int(x) for x in line.split("=")[1].split()]
+                if line.split("=")[0].strip() == "CORRELATION":
+                    args["correlation"] = line.split("=")[1].strip().lower() in ("yes","true")
+                if line.split("=")[0].strip() == "RANDOM_DEFECTS":
+                    args["random"] = int(line.split("=")[1].strip())
+                if line.split("=")[0].strip() == "CUTOFF":
+                    args["cutoff"] = int(line.split("=")[1].strip())
+                if line.split("=")[0].strip() == "ULAM":
+                    args["ulam"] = line.split("=")[1].strip().lower() in ("yes","true")
+                if line.split("=")[0].strip() == "ORIENTATIONS":
+                    args["orientations"] = [int(x) for x in line.split("=")[1].split()]
     return args
 
 if __name__=='__main__':
@@ -335,7 +335,7 @@ if __name__=='__main__':
     if 'defects' not in args:
         args["defects"] = []
     if 'identity' not in args:
-	raise ValueError("You must supply identity")
+        raise ValueError("You must supply identity")
     if 'basis' not in args:
         raise ValueError("You must supply a basis")
     if 'width' not in args:
