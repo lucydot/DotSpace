@@ -3,10 +3,10 @@ TODO
 
 *Long term*
 - refactor code
-- adapt to run across multiple cores
+- adapt to run across multiple cores (Numba jit decorator with parallel=True flag)
 - implement correlation length analysis
-- publish as website
 - ask users (ie, Richard!) to use github requests feature for better issue tracking
+- write tests and use continuous integration (Travis)
 
 *requests from users, ie: Richard*
 - ULAM pattern: start in the middle and spiral outwards. With the option for starting at E/S/W/N and running clockwise from this (which would correspond to rotation at end of layer creation). Odd and even-squares will have different behaviour. Clarify defect positioning.
