@@ -103,7 +103,7 @@ def visualise(args, defects, patterns):
     image.set_cmap('Greys')
     plt.axis('off')
     plt.savefig(args["identity"]+"-"+"defects"+".png", 
-                    bbox_inches='tight',dpi=500)
+                    bbox_inches='tight',dpi=dpi)
     plt.close()
     
     if np.all(patterns[-1]):
@@ -112,7 +112,7 @@ def visualise(args, defects, patterns):
     image.set_cmap('Greys')
     plt.axis('off')
     plt.savefig(args["identity"]+"-"+"overlaid"+".png", 
-                    bbox_inches='tight',dpi=500)
+                    bbox_inches='tight',dpi=dpi)
     plt.close()
 
 
@@ -121,7 +121,7 @@ def visualise(args, defects, patterns):
         image.set_cmap('Greys')
         plt.axis('off')
         plt.savefig(args["identity"]+"-layer_"+str(x)+".png", 
-                    bbox_inches='tight',dpi=500)
+                    bbox_inches='tight',dpi=dpi)
         plt.close()
 
 def jitterbug(pattern,X,Y):
@@ -300,6 +300,8 @@ def import_input(input_filename):
                     args["random"] = int(line.split("=")[1].strip())
                 if line.split("=")[0].strip() == "CUTOFF":
                     args["cutoff"] = int(line.split("=")[1].strip())
+                if line.split("=")[0].strip() == "DPI":
+                    args["dpi"] = int(line.split("=")[1].strip())
                 if line.split("=")[0].strip() == "ULAM":
                     args["ulam"] = line.split("=")[1].strip().lower() in ("yes","true")
                 if line.split("=")[0].strip() == "ORIENTATIONS":
@@ -329,6 +331,8 @@ if __name__=='__main__':
     print (philosophy)
     args = dict()        
     args = import_input(input_file)
+    if 'dpi' not in args:
+    	'dpi' = 300
     if 'random' not in args:
         args["random"] = 0
     if 'correlation' not in args:
