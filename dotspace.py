@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
@@ -261,9 +262,9 @@ def parse_basis_input(line,name):
             args[name+"_digital"] = args[name+"_digital"] + [1] + [0]*(x-1)
         args[name] = line.split("=")[1].strip()
 
-def import_input():
+def import_input(input_filename):
 
-    with open('INPUT') as f:
+    with open(input_filename) as f:
         for line in f:
             if line.startswith("#"):
                 pass
@@ -320,9 +321,14 @@ if __name__=='__main__':
    |      Agnes Denes, Notes on a visual philosophy                  |
    -------------------------------------------------------------------
      """ 
+    if len(sys.argv) > 1:
+    	input_file = sys.argv[1]
+    else:
+    	input_file = "INPUT"
+
     print (philosophy)
     args = dict()        
-    args = import_input()
+    args = import_input(input_file)
     if 'random' not in args:
         args["random"] = 0
     if 'correlation' not in args:
