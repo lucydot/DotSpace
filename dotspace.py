@@ -262,6 +262,13 @@ def parse_basis_input(line,name):
             args[name+"_digital"] = args[name+"_digital"] + [1] + [0]*(x-1)
         args[name] = line.split("=")[1].strip()
 
+def parse_basis_input_colon(line,name):
+        args[name+"_digital"] = []
+        digits_list = list(map(int,line.split(":")[1].strip()))
+        for x in digits_list:
+            args[name+"_digital"] = args[name+"_digital"] + [1] + [0]*(x-1)
+        args[name] = line.split(":")[1].strip()
+
 def import_input(input_filename):
 
     with open(input_filename) as f:
@@ -269,21 +276,35 @@ def import_input(input_filename):
             if line.startswith("#"):
                 pass
             else:
-                if line.split("=")[0].strip() == "IDENTITY":
+                if line.split("=")[0].strip().upper() == "IDENTITY":
                     args["identity"] = line.split("=")[1].strip()
-                if line.split("=")[0].strip() == "WIDTH":    
+                if line.split(":")[0].strip().upper() == "IDENTITY":
+                    args["identity"] = line.split(":")[1].strip()
+                if line.split("=")[0].strip().upper() == "WIDTH":    
                     args["width"] = int(line.split("=")[1].strip())
-                if line.split("=")[0].strip() == "HEIGHT":           
+                if line.split(":")[0].strip().upper() == "WIDTH":    
+                    args["width"] = int(line.split(":")[1].strip())
+                if line.split("=")[0].strip().upper() == "HEIGHT":           
                     args["height"] = int(line.split("=")[1].strip())
-                if line.split("=")[0].strip() == "BASIS":
+                if line.split(":")[0].strip().upper() == "HEIGHT":           
+                    args["height"] = int(line.split(":")[1].strip())
+                if line.split("=")[0].strip().upper() == "BASIS":
                     parse_basis_input(line,"basis")
-                if line.split("=")[0].strip() == "BASIS90":
+                if line.split("=")[0].strip().upper() == "BASIS90":
                     parse_basis_input(line,"basis90")
-                if line.split("=")[0].strip() == "BASIS180":
+                if line.split("=")[0].strip().upper() == "BASIS180":
                     parse_basis_input(line, "basis180")
-                if line.split("=")[0].strip() == "BASIS270":
+                if line.split("=")[0].strip().upper() == "BASIS270":
                     parse_basis_input(line, "basis270")
-                if line.split("=")[0].strip() == "DEFECTS":
+                if line.split(":")[0].strip().upper() == "BASIS":
+                    parse_basis_input_colon(line,"basis")
+                if line.split(":")[0].strip().upper() == "BASIS90":
+                    parse_basis_input_colon(line,"basis90")
+                if line.split(":")[0].strip().upper() == "BASIS180":
+                    parse_basis_input_colon(line, "basis180")
+                if line.split(":")[0].strip().upper() == "BASIS270":
+                    parse_basis_input_colon(line, "basis270")
+                if line.split(":")[0].strip().upper() == "DEFECTS":
                     if "x" in line.split("=")[1]:
             # WIP: not sure how to specify input
                         args[defects] = []
@@ -294,18 +315,43 @@ def import_input(input_filename):
                                 args[name].append(int(e.split("x")[1]))
                     else:
                         args["defects"] = [int(x) for x in line.split("=")[1].split()]
-                if line.split("=")[0].strip() == "CORRELATION":
+                if line.split(":")[0].strip().upper() == "DEFECTS":
+                    if "x" in line.split(":")[1]:
+            # WIP: not sure how to specify input
+                        args[defects] = []
+                        entries = line.split(":")[1].split()
+                        
+                        for e in entries:
+                            for i in range(int(e.split("x")[0])):
+                                args[name].append(int(e.split("x")[1]))
+                    else:
+                        args["defects"] = [int(x) for x in line.split(":")[1].split()]               
+                if line.split("=")[0].strip().upper() == "CORRELATION":
                     args["correlation"] = line.split("=")[1].strip().lower() in ("yes","true")
-                if line.split("=")[0].strip() == "RANDOM_DEFECTS":
+                if line.split(":")[0].strip().upper() == "CORRELATION":
+                    args["correlation"] = line.split(":")[1].strip().lower() in ("yes","true")                 
+                if line.split("=")[0].strip().upper() == "RANDOM_DEFECTS":
                     args["random"] = int(line.split("=")[1].strip())
-                if line.split("=")[0].strip() == "CUTOFF":
-                    args["cutoff"] = int(line.split("=")[1].strip())
-                if line.split("=")[0].strip() == "DPI":
+                if line.split(":")[0].strip().upper() == "RANDOM_DEFECTS":
+                    args["random"] = int(line.split(":")[1].strip())                   
+                if line.split("=")[0].strip().upper() == "CUTOFF":
+                    if line.split("=")[1].strip() != 'None':
+                        args["cutoff"] = int(line.split("=")[1].strip())
+                if line.split(":")[0].strip().upper() == "CUTOFF":
+                    if line.split(":")[1].strip() != 'None':
+                        args["cutoff"] = int(line.split(":")[1].strip())                    
+                if line.split("=")[0].strip().upper() == "DPI":
                     args["dpi"] = int(line.split("=")[1].strip())
-                if line.split("=")[0].strip() == "ULAM":
+                if line.split(":")[0].strip().upper() == "DPI":
+                    args["dpi"] = int(line.split(":")[1].strip())                   
+                if line.split("=")[0].strip().upper() == "ULAM":
                     args["ulam"] = line.split("=")[1].strip().lower() in ("yes","true")
-                if line.split("=")[0].strip() == "ORIENTATIONS":
+                if line.split(":")[0].strip().upper() == "ULAM":
+                    args["ulam"] = line.split(":")[1].strip().lower() in ("yes","true")
+                if line.split("=")[0].strip().upper() == "ORIENTATIONS":
                     args["orientations"] = [int(x) for x in line.split("=")[1].split()]
+                if line.split(":")[0].strip().upper() == "ORIENTATIONS":
+                    args["orientations"] = [int(x) for x in line.split(":")[1].split()]                   
     return args
 
 if __name__=='__main__':
@@ -324,15 +370,15 @@ if __name__=='__main__':
    -------------------------------------------------------------------
      """ 
     if len(sys.argv) > 1:
-    	input_file = sys.argv[1]
+        input_file = sys.argv[1]
     else:
-    	input_file = "INPUT"
+        input_file = "INPUT"
 
     print (philosophy)
     args = dict()        
     args = import_input(input_file)
     if 'dpi' not in args:
-    	'dpi' = 300
+        args["dpi"] = 300
     if 'random' not in args:
         args["random"] = 0
     if 'correlation' not in args:
@@ -343,11 +389,11 @@ if __name__=='__main__':
         args["defects"] = []
     if 'identity' not in args:
         raise ValueError("You must supply identity")
-    if 'basis' not in args:
+    if 'basis' or 'BASIS' not in args:
         raise ValueError("You must supply a basis")
-    if 'width' not in args:
+    if 'width' or 'WIDTH' not in args:
         raise ValueError("You must supply a width")
-    if 'height' not in args:
+    if 'height' or 'HEIGHT' not in args:
         raise ValueError("You must supply a height")
     for item in args["defects"]: 
         if item > (args["width"]*args["height"])-1:
